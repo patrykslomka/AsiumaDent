@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dental X-ray Analysis Platform</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Dental X-ray Analysis Platform</h1>
+            <p>Upload a dental X-ray to detect and locate dental conditions</p>
+        </header>
+
+        <div class="upload-container card">
+            <h2>Upload Dental X-ray</h2>
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="file-input-container">
+                    <input type="file" id="xray-input" name="xray" accept="image/*">
+                    <label for="xray-input" class="file-label">Choose an image</label>
+                    <span id="file-name">No file chosen</span>
+                </div>
+                <button type="submit" class="primary-button">Analyze X-ray</button>
+            </form>
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Analyzing X-ray...</p>
+        </div>
+
+        <div class="results-container card" id="results" style="display: none;">
+            <h2>Analysis Results</h2>
+            <div class="results-grid">
+                <div class="image-container">
+                    <h3>Annotated X-ray</h3>
+                    <div class="image-wrapper">
+                        <img id="annotated-image" src="" alt="Annotated X-ray">
+                    </div>
+                </div>
+                <div class="predictions-container">
+                    <h3>Detected Conditions</h3>
+                    <canvas id="prediction-chart"></canvas>
+                    <div id="predictions-list"></div>
+                </div>
+            </div>
+
+            <div class="ai-report-container" id="ai-report-container" style="display: none;">
+                <h3>AI Analysis Report</h3>
+                <div class="ai-report" id="ai-report">
+                    <!-- Claude-generated report will be displayed here -->
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2025 Dental X-ray Analysis Platform</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-# src/train_coco.py
 import os
 import torch
 import torch.nn as nn
