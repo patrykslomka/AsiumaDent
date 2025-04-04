@@ -8,56 +8,6 @@ from dotenv import load_dotenv
 from src.inference import load_model, predict_with_location
 from src.dental_ontology import DentalOntology
 from src.claude_integration import ClaudeAssistant
-import os
-import requests
-
-
-def download_file_from_google_drive(id, destination):
-    def get_confirm_token(response):
-        for key, value in response.cookies.items():
-            if key.startswith('download_warning'):
-                return value
-        return None
-
-    URL = "https://docs.google.com/uc?export=download"
-    session = requests.Session()
-
-    response = session.get(URL, params={'id': id}, stream=True)
-    token = get_confirm_token(response)
-
-    if token:
-        params = {'id': id, 'confirm': token}
-        response = session.get(URL, params=params, stream=True)
-
-    with open(destination, "wb") as f:
-        for chunk in response.iter_content(32768):
-            if chunk:
-                f.write(chunk)
-
-
-# Example usage
-def download_model(model_url, model_path):
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
-
-    # Extract file ID from Google Drive share link
-    file_id = model_url.split('/d/')[1].split('/view')[0]
-
-    print(f"Downloading model from Google Drive with ID: {file_id}")
-    try:
-        download_file_from_google_drive(file_id, model_path)
-        print("Model downloaded successfully")
-    except Exception as e:
-        print(f"Error downloading model: {e}")
-        raise
-
-
-# In your main script
-MODEL_URL = "https://drive.google.com/file/d/1pjDGKb2xleb0wKjVVFJiiNU3cOAIVp-O/view?usp=sharing"
-MODEL_PATH = 'models/best_model.pth'
-
-if not os.path.exists(MODEL_PATH):
-    download_model(MODEL_URL, MODEL_PATH)
-
 
 # Load environment variables from .env file
 load_dotenv()

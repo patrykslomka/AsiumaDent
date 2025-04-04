@@ -23,9 +23,9 @@ var/
 # Model files
 models/best_model.pth
 models/checkpoints/
-models/metrics
+models/*.pth
 *.pt
-
+*.pth
 
 # Processed data & uploads
 processed_data/
