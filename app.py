@@ -8,6 +8,20 @@ from dotenv import load_dotenv
 from src.inference import load_model, predict_with_location
 from src.dental_ontology import DentalOntology
 from src.claude_integration import ClaudeAssistant
+import requests
+import os
+
+# Download model file if it doesn't exist
+MODEL_PATH = 'models/best_model.pth'
+if not os.path.exists(MODEL_PATH):
+    os.makedirs('models', exist_ok=True)
+    model_url = "https://drive.google.com/file/d/1pjDGKb2xleb0wKjVVFJiiNU3cOAIVp-O/view?usp=sharing"
+    print(f"Downloading model from {model_url}...")
+    response = requests.get(model_url)
+    with open(MODEL_PATH, 'wb') as f:
+        f.write(response.content)
+    print("Model downloaded successfully")
+
 
 # Load environment variables from .env file
 load_dotenv()
