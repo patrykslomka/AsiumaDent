@@ -1,89 +1,108 @@
 import os
-import uuid
-from flask import Flask, request, render_template, jsonify, url_for, send_from_directory
-from PIL import Image, ImageDraw, ImageFont
+import gradio as gr
 import torch
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
+import json
+import tempfile
+import shutil
 from dotenv import load_dotenv
-from src.inference import load_model, predict_with_location
-from src.dental_ontology import DentalOntology
-from src.claude_integration import ClaudeAssistant
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+# Import your existing modules
+# These imports assume your original files are in the same directory
+from model import DentalClassificationModel, DentalDetectionModel
+from inference import load_model, predict_with_location
+from dental_ontology import DentalOntology
 
-# Load model on startup
+# Initialize dental ontology
+try:
+    dental_ontology = DentalOntology()
+    ontology_loaded = True
+except Exception as e:
+    print(f"Warning: Could not load dental ontology: {e}")
+    ontology_loaded = False
+    dental_ontology = None
+
+# Initialize Claude assistant if API key is available
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+claude_available = ANTHROPIC_API_KEY is not None
+
+if claude_available:
+    from claude_integration import ClaudeAssistant
+
+    claude_assistant = ClaudeAssistant(api_key=ANTHROPIC_API_KEY)
+    print("Claude integration enabled")
+else:
+    print("Claude integration disabled. Set ANTHROPIC_API_KEY to enable.")
+
+# Create directories
+os.makedirs('uploads', exist_ok=True)
+os.makedirs('models', exist_ok=True)
+
+# Load model
 MODEL_PATH = 'models/best_model.pth'
 CLASS_NAMES_PATH = 'models/class_names.json'
 
-print("Loading model...")
-model, class_names = load_model(MODEL_PATH, CLASS_NAMES_PATH)
-print(f"Model loaded successfully with {len(class_names)} classes")
+# Load class names directly if model isn't available yet
+try:
+    with open(CLASS_NAMES_PATH, 'r') as f:
+        class_names = json.load(f)
+    print(f"Loaded {len(class_names)} class names")
+except FileNotFoundError:
+    print("Class names file not found. Using placeholder.")
+    class_names = ["Caries", "Crown", "Filling", "Implant", "Malaligned"]
 
-# Initialize dental ontology
-dental_ontology = DentalOntology()
+# Try to load model, but continue even if it fails (for UI development)
+try:
+    model, _ = load_model(MODEL_PATH, CLASS_NAMES_PATH)
+    model_loaded = True
+    print("Model loaded successfully")
+except Exception as e:
+    print(f"Warning: Could not load model: {e}")
+    print("Continuing with UI only. Upload model files to enable analysis.")
+    model_loaded = False
 
-# Initialize Claude assistant
-api_key = os.environ.get("ANTHROPIC_API_KEY")
-if api_key:
-    print(f"API key loaded: {api_key[:5]}...")
-else:
-    print("No API key found. Claude integration will not be available.")
-claude_assistant = ClaudeAssistant(api_key=api_key)
+# Define colors for different conditions
+condition_colors = {
+    'Crown': (255, 0, 0),  # Red
+    'Implant': (0, 255, 0),  # Green
+    'Root Piece': (0, 0, 255),  # Blue
+    'Filling': (255, 255, 0),  # Yellow
+    'Periapical lesion': (255, 0, 255),  # Magenta
+    'Retained root': (0, 255, 255),  # Cyan
+    'maxillary sinus': (255, 165, 0),  # Orange
+    'Malaligned': (128, 0, 128),  # Purple
+}
 
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+def analyze_xray(image):
+    """Process the uploaded X-ray image and return analysis results"""
+    if image is None:
+        return None, "Please upload an image to analyze.", None, []
 
+    if not model_loaded:
+        return (
+            image,
+            "Model not loaded. Please upload model files to the 'models' directory.",
+            None,
+            []
+        )
 
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    # Save image to temporary file
+    with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_file:
+        temp_path = temp_file.name
+        image.save(temp_path)
 
-
-@app.route('/analyze', methods=['POST'])
-def analyze():
-    if 'xray' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-
-    file = request.files['xray']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-
-    # Save file with unique name
-    filename = str(uuid.uuid4()) + os.path.splitext(file.filename)[1]
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(file_path)
-
-    # Make prediction with locations
     try:
-        predictions, image = predict_with_location(model, file_path, class_names)
-
-        # Save annotated image for display
-        annotated_filename = f"annotated_{filename}"
-        annotated_path = os.path.join(app.config['UPLOAD_FOLDER'], annotated_filename)
+        # Make prediction with locations
+        predictions, pil_image = predict_with_location(model, temp_path, class_names)
 
         # Draw bounding boxes on a copy of the image
-        draw_image = image.copy()
+        draw_image = pil_image.copy()
         draw = ImageDraw.Draw(draw_image)
-
-        # Define colors for different conditions
-        condition_colors = {
-            'Crown': (255, 0, 0),  # Red
-            'Implant': (0, 255, 0),  # Green
-            'Root Piece': (0, 0, 255),  # Blue
-            'Filling': (255, 255, 0),  # Yellow
-            'Periapical lesion': (255, 0, 255),  # Magenta
-            'Retained root': (0, 255, 255),  # Cyan
-            'maxillary sinus': (255, 165, 0),  # Orange
-            'Malaligned': (128, 0, 128),  # Purple
-        }
 
         # Draw precise bounding boxes
         for i, pred in enumerate(predictions):
@@ -93,57 +112,200 @@ def analyze():
                 color = condition_colors.get(condition, (255, 255, 255))
 
                 # Draw rectangle
-                draw.rectangle([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]],
-                               outline=color, width=2)
+                draw.rectangle(
+                    [bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]],
+                    outline=color, width=2
+                )
 
                 # Add number and label
-                text = f"{i+1}. {condition}: {pred['probability']:.2f}"
+                text = f"{i + 1}. {condition}: {pred['probability']:.2f}"
                 try:
                     font = ImageFont.truetype("arial.ttf", 12)
                 except IOError:
                     font = ImageFont.load_default()
 
-                text_width, text_height = draw.textsize(text, font=font) if hasattr(draw, 'textsize') else (
-                len(text) * 7, 12)
-                draw.rectangle([bbox[0], bbox[1] - text_height - 2, bbox[0] + text_width, bbox[1]],
-                               fill=color)
-                draw.text((bbox[0], bbox[1] - text_height - 2), text, fill="white", font=font)
+                # Handle different versions of PIL
+                if hasattr(draw, 'textsize'):
+                    text_width, text_height = draw.textsize(text, font=font)
+                else:
+                    text_width, text_height = (len(text) * 7, 12)
 
-        # Save the annotated image
-        draw_image.save(annotated_path)
+                draw.rectangle(
+                    [bbox[0], bbox[1] - text_height - 2, bbox[0] + text_width, bbox[1]],
+                    fill=color
+                )
+                draw.text((bbox[0], bbox[1] - text_height - 2), text, fill="white", font=font)
 
         # Get detailed information from the ontology for each prediction
         detailed_predictions = []
-        for pred in predictions:
-            condition = pred['condition']
-            detailed_pred = {
-                **pred,
-                "details": dental_ontology.get_condition_info(condition)
-            }
-            detailed_predictions.append(detailed_pred)
+        if ontology_loaded:
+            for pred in predictions:
+                condition = pred['condition']
+                detailed_pred = {
+                    **pred,
+                    "details": dental_ontology.get_condition_info(condition)
+                }
+                detailed_predictions.append(detailed_pred)
+        else:
+            detailed_predictions = predictions
 
-        # Generate AI report
+        # Generate AI report if Claude is available
         ai_report = None
-        if os.environ.get("ANTHROPIC_API_KEY"):
-            report_result = claude_assistant.generate_dental_report(predictions, dental_ontology)
-            ai_report = report_result.get("report")
+        if claude_available and len(predictions) > 0:
+            try:
+                report_result = claude_assistant.generate_dental_report(
+                    predictions,
+                    dental_ontology if ontology_loaded else {}
+                )
+                ai_report = report_result.get("report")
+            except Exception as e:
+                ai_report = f"Error generating report: {str(e)}"
 
-        return jsonify({
-            'predictions': detailed_predictions,
-            'original_image': f"/uploads/{filename}",
-            'annotated_image': f"/uploads/{annotated_filename}",
-            'ai_report': ai_report
-        })
+        # Format predictions for display
+        formatted_predictions = []
+        for i, pred in enumerate(predictions):
+            formatted_predictions.append(
+                f"{i + 1}. {pred['condition']}: {pred['probability'] * 100:.1f}%"
+            )
+
+        # Clean up
+        os.unlink(temp_path)
+
+        return draw_image, ai_report, create_chart_data(predictions), formatted_predictions
+
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        error_msg = f"Error analyzing image: {str(e)}\n{traceback.format_exc()}"
+        return image, error_msg, None, []
     finally:
-        # Clean up original file if not needed
-        if os.path.exists(file_path) and "filename" in locals():
-            # Keep for debugging
-            pass
+        # Clean up temp file if it still exists
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
 
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+def create_chart_data(predictions):
+    """Create data for the bar chart visualization"""
+    if not predictions:
+        return None
+
+    # Limit to top 10 predictions
+    top_predictions = sorted(
+        predictions,
+        key=lambda x: x['probability'],
+        reverse=True
+    )[:10]
+
+    # Create labels and values
+    labels = [p['condition'] for p in top_predictions]
+    values = [p['probability'] * 100 for p in top_predictions]
+
+    return (labels, values)
+
+
+# Create Gradio interface
+def create_interface():
+    with gr.Blocks(title="Dental X-ray Analysis", theme=gr.themes.Soft()) as demo:
+        gr.Markdown(
+            """
+            # Dental X-ray Analysis Platform
+
+            Upload a dental X-ray to detect and locate dental conditions using AI.
+            """
+        )
+
+        with gr.Row():
+            with gr.Column(scale=1):
+                input_image = gr.Image(
+                    type="pil",
+                    label="Upload X-ray Image",
+                    elem_id="xray-input"
+                )
+                analyze_button = gr.Button(
+                    "Analyze X-ray",
+                    variant="primary",
+                    elem_id="analyze-button"
+                )
+                model_status = gr.Markdown(
+                    f"**Model Status**: {'✅ Loaded' if model_loaded else '❌ Not Loaded'}"
+                )
+
+            with gr.Column(scale=2):
+                with gr.Tab("Results"):
+                    output_image = gr.Image(
+                        type="pil",
+                        label="Annotated X-ray",
+                        elem_id="annotated-image"
+                    )
+
+                    with gr.Row():
+                        with gr.Column(scale=1):
+                            predictions_list = gr.Dataframe(
+                                headers=["Detected Conditions"],
+                                datatype=["str"],
+                                label="Detected Conditions",
+                                elem_id="predictions-list"
+                            )
+
+                        with gr.Column(scale=1):
+                            chart = gr.BarPlot(
+                                x="Condition",
+                                y="Confidence (%)",
+                                title="Confidence Scores",
+                                tooltip=["Condition", "Confidence (%)"],
+                                y_lim=[0, 100],
+                                label="Prediction Confidence",
+                                elem_id="prediction-chart"
+                            )
+
+                with gr.Tab("AI Report"):
+                    ai_report = gr.Markdown(
+                        label="AI Analysis Report",
+                        elem_id="ai-report"
+                    )
+
+        analyze_button.click(
+            analyze_xray,
+            inputs=[input_image],
+            outputs=[output_image, ai_report, chart, predictions_list]
+        )
+
+        gr.Markdown("""
+        ## How to Use
+
+        1. Upload a dental X-ray image using the upload box
+        2. Click "Analyze X-ray" to process the image
+        3. View the annotated image with detected conditions
+        4. Check the "AI Report" tab for clinical insights
+
+        ## About
+
+        This application uses a deep learning model to detect various dental conditions in X-ray images.
+        The model is based on EfficientNet architecture and trained on dental radiographs.
+        """)
+
+        if not model_loaded:
+            gr.Markdown("""
+            ## ⚠️ Model Not Loaded
+
+            The analysis model is not currently loaded. To enable analysis:
+
+            1. Upload the model file (`best_model.pth`) to the `models` directory
+            2. Upload the class names file (`class_names.json`) to the `models` directory
+            3. Restart the Space
+            """)
+
+        if not claude_available:
+            gr.Markdown("""
+            ## ℹ️ AI Report Disabled
+
+            The AI report generation is disabled because the ANTHROPIC_API_KEY is not set.
+            To enable AI reports, add your Claude API key as an environment variable.
+            """)
+
+    return demo
+
+
+# Launch the interface
+if __name__ == "__main__":
+    demo = create_interface()
+    demo.launch()
