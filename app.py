@@ -17,13 +17,19 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Load model on startup
-MODEL_PATH = 'models/best_model.pth'
-CLASS_NAMES_PATH = 'models/class_names.json'
+# Get the directory where app.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-print("Loading model...")
+# Define paths relative to the project root
+MODEL_PATH = os.path.join(BASE_DIR, 'models', 'best_model.pth')
+CLASS_NAMES_PATH = os.path.join(BASE_DIR, 'models', 'class_names.json')
+
+# Debug: Check if the file exists
+print(f"Model path: {MODEL_PATH}")
+print(f"Does model exist? {os.path.exists(MODEL_PATH)}")
+
+# Load the model
 model, class_names = load_model(MODEL_PATH, CLASS_NAMES_PATH)
-print(f"Model loaded successfully with {len(class_names)} classes")
 
 # Initialize dental ontology
 dental_ontology = DentalOntology()
