@@ -34,7 +34,7 @@ def load_model(model_path, class_names_path, device='cuda' if torch.cuda.is_avai
 
     # Load model state
     try:
-        checkpoint = torch.load(model_path, map_location=device, weights_only=False)
+        checkpoint = torch.load(model_path, map_location=torch.device('cpu'), weights_only=False)
 
         # Check what's in the checkpoint
         print(f"Checkpoint keys: {checkpoint.keys()}")
