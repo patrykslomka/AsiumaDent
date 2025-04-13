@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Feedback Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Feedback Dashboard</h1>
+
+        <div class="feedback-list">
+            {% for item in feedback %}
+            <div class="feedback-entry card">
+                <h3>Feedback on {{ item.timestamp }}</h3>
+                <p>Image ID: {{ item.image_id }}</p>
+                <p>Dentist ID: {{ item.dentist_id or 'Anonymous' }}</p>
+
+                <div class="comparison">
+                    <div class="original">
+                        <h4>Original Predictions</h4>
+                        <ul>
+                            {% for pred in item.original_predictions %}
+                            <li>{{ pred.condition }} ({{ "%.1f"|format(pred.probability*100) }}%)</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <div class="corrected">
+                        <h4>Corrected Predictions</h4>
+                        <ul>
+                            {% for pred in item.corrected_predictions %}
+                            <li>{{ pred.condition }} ({{ "%.1f"|format(pred.probability*100) }}%)</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

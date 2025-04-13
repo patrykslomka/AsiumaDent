@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dental X-ray Analysis - Learning Data Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--background-card);
+            border-radius: 8px;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .admin-title {
+            font-size: 24px;
+            color: var(--accent-color);
+        }
+
+        .learning-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .learning-table th, .learning-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .learning-table th {
+            background-color: rgba(0, 226, 200, 0.1);
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .learning-table tr:hover {
+            background-color: rgba(0, 226, 200, 0.05);
+        }
+
+        .positive {
+            color: #2ecc71;
+        }
+
+        .negative {
+            color: #e74c3c;
+        }
+
+        .neutral {
+            color: #3498db;
+        }
+
+        .bbox-viz {
+            display: inline-block;
+            width: 100px;
+            height: 60px;
+            background-color: rgba(0, 0, 0, 0.2);
+            position: relative;
+            border: 1px solid var(--border-color);
+        }
+
+        .bbox-inner {
+            position: absolute;
+            border: 2px solid var(--accent-color);
+            background-color: rgba(0, 226, 200, 0.2);
+        }
+
+        .summary-card {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-title {
+            font-size: 18px;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+
+        .summary-stats {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            margin-right: 20px;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1 class="admin-title">Feedback Learning Data</h1>
+            <a href="/" class="secondary-button">Back to Dashboard</a>
+        </div>
+
+        <div class="summary-card">
+            <h2 class="summary-title">Learning Statistics</h2>
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <div class="stat-label">Total Records</div>
+                    <div class="stat-value">{{ learning_data|length }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Positive Corrections</div>
+                    <div class="stat-value positive">{{ learning_data|selectattr('correction_count', 'gt', 0)|list|length }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Negative Corrections</div>
+                    <div class="stat-value negative">{{ learning_data|selectattr('correction_count', 'lt', 0)|list|length }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Unique Conditions</div>
+                    <div class="stat-value">{{ learning_data|map(attribute='condition')|unique|list|length }}</div>
+                </div>
+            </div>
+        </div>
+
+        <table class="learning-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Condition</th>
+                    <th>Bounding Box</th>
+                    <th>Visualization</th>
+                    <th>Confidence</th>
+                    <th>Correction Count</th>
+                    <th>Image</th>
+                    <th>Last Update</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in learning_data %}
+                <tr>
+                    <td>{{ item.id }}</td>
+                    <td>{{ item.condition }}</td>
+                    <td>{{ item.bbox|join(', ') }}</td>
+                    <td>
+                        <div class="bbox-viz">
+                            <div class="bbox-inner" style="
+                                left: {{ item.bbox[0] / 5 }}px;
+                                top: {{ item.bbox[1] / 5 }}px;
+                                width: {{ item.bbox[2] / 5 }}px;
+                                height: {{ item.bbox[3] / 5 }}px;
+                                "></div>
+                        </div>
+                    </td>
+                    <td>{{ "%.2f"|format(item.confidence * 100) }}%</td>
+                    <td class="{% if item.correction_count > 0 %}positive{% elif item.correction_count < 0 %}negative{% else %}neutral{% endif %}">
+                        {{ item.correction_count }}
+                    </td>
+                    <td>
+                        <a href="/uploads/{{ item.image_path }}" target="_blank">View</a>
+                    </td>
+                    <td>{{ item.last_update }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

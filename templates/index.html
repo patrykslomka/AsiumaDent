@@ -10,56 +10,104 @@
 <body>
     <div class="container">
         <header>
-            <h1>Dental X-ray Analysis Platform</h1>
-            <p>Upload a dental X-ray to detect and locate dental conditions</p>
+            <h1>DENTAL X-RAY ANALYSIS</h1>
         </header>
 
-        <div class="upload-container card">
-            <h2>Upload Dental X-ray</h2>
-            <form id="upload-form" enctype="multipart/form-data">
-                <div class="file-input-container">
-                    <input type="file" id="xray-input" name="xray" accept="image/*">
-                    <label for="xray-input" class="file-label">Choose an image</label>
-                    <span id="file-name">No file chosen</span>
-                </div>
-                <button type="submit" class="primary-button">Analyze X-ray</button>
-            </form>
-        </div>
-
-        <div class="loading" id="loading" style="display: none;">
-            <div class="spinner"></div>
-            <p>Analyzing X-ray...</p>
-        </div>
-
-        <div class="results-container card" id="results" style="display: none;">
-            <h2>Analysis Results</h2>
-            <div class="results-grid">
-                <div class="image-container">
-                    <h3>Annotated X-ray</h3>
-                    <div class="image-wrapper">
-                        <img id="annotated-image" src="" alt="Annotated X-ray">
-                    </div>
-                </div>
-                <div class="predictions-container">
-                    <h3>Detected Conditions</h3>
-                    <canvas id="prediction-chart"></canvas>
-                    <div id="predictions-list"></div>
+        <div class="sidebar">
+            <div class="card">
+                <div class="results-header">Upload Dental X-ray</div>
+                <div class="upload-container">
+                    <form id="upload-form" enctype="multipart/form-data">
+                        <div class="file-input-container">
+                            <input type="file" id="xray-input" name="xray" accept="image/*">
+                            <label for="xray-input" class="file-label">Choose an image</label>
+                            <span id="file-name">No file chosen</span>
+                        </div>
+                        <button type="submit" class="primary-button">Analyze X-ray</button>
+                    </form>
                 </div>
             </div>
 
-            <div class="ai-report-container" id="ai-report-container" style="display: none;">
-                <h3>AI Analysis Report</h3>
-                <div class="ai-report" id="ai-report">
-                    <!-- Claude-generated report will be displayed here -->
+            <div class="card" id="results-card" style="display: none;">
+                <div class="results-header">Detected Conditions</div>
+                <div class="upload-container">
+                    <div class="tabs">
+                        <div class="tab active" data-tab="predictions">Predictions</div>
+                        <div class="tab" data-tab="feedback">Feedback</div>
+                    </div>
+
+                    <div id="predictions-tab" class="tab-content active">
+                        <div class="threshold-container">
+                            <label>Confidence Threshold: <span id="threshold-value" class="threshold-value">50%</span></label>
+                            <input type="range" min="0" max="100" value="50" class="threshold-slider" id="confidence-threshold">
+                        </div>
+                        <div id="predictions-list"></div>
+                        <div id="prediction-chart-container" style="height: 300px; margin-top: 20px;">
+                            <canvas id="prediction-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div id="feedback-tab" class="tab-content">
+                        <p class="mb-2">Please correct any misidentified conditions to help improve the model.</p>
+                        <div id="feedback-items"></div>
+                        <div class="feedback-actions" style="margin-top: 20px; display: flex; justify-content: space-between;">
+                            <button id="add-condition-btn" class="secondary-button">Add Missing Condition</button>
+                            <button id="submit-feedback-btn" class="primary-button">Submit Feedback</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="loading" id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Analyzing X-ray...</p>
+            </div>
+
+            <div id="results" style="display: none;">
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">89.8%</div>
+                        <div class="metric-label">mAP@50</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">92.6%</div>
+                        <div class="metric-label">Precision</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">82.9%</div>
+                        <div class="metric-label">Recall</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="results-header">Annotated X-ray</div>
+                    <div class="image-container">
+                        <div class="image-wrapper">
+                            <img id="annotated-image" src="" alt="Annotated X-ray">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ai-report-container" id="ai-report-container" style="display: none;">
+                    <h3>AI Analysis Report</h3>
+                    <div class="ai-report" id="ai-report">
+                        <!-- Claude-generated report will be displayed here -->
+                    </div>
                 </div>
             </div>
         </div>
 
         <footer>
-            <p>&copy; 2025 Dental X-ray Analysis Platform</p>
+            <p>© 2025 AsiumaDent X-ray Analysis Platform</p>
         </footer>
     </div>
 
+    <script>
+        // Pass class names from the server to the client
+        const class_names = {{ class_names|tojson }};
+    </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

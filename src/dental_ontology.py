@@ -80,3 +80,4 @@ class DentalOntology:
         """Return differential diagnosis for the specified condition"""
         info = self.get_condition_info(condition)
         return info.get("differential_diagnosis", [])
+
