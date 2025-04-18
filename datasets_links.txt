@@ -1,0 +1,7 @@
+https://www.kaggle.com/datasets/lokisilvres/dental-disease-panoramic-detection-dataset?select=COCO
+
+https://www.kaggle.com/datasets/imtkaggleteam/dental-opg-xray-dataset
+
+https://universe.roboflow.com/gozdes-projects/dental-x-ray-1imfs/dataset/1
+
+https://www.kaggle.com/datasets/imtkaggleteam/dental-radiography
